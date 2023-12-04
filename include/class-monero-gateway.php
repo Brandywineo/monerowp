@@ -273,33 +273,37 @@ class Monero_Gateway extends WC_Payment_Gateway
     {
         global $wpdb;
 
-        // Get Live Price
-        $currencies = implode(',', self::$currencies);
-        $api_link = 'https://api.coingecko.com/api/v3/simple/price?ids=monero&vs_currencies='.$currencies;
-        $curl = curl_init();
-        curl_setopt_array($curl, array(
-            CURLOPT_RETURNTRANSFER => 1,
-            CURLOPT_URL => $api_link,
-        ));
-        $resp = curl_exec($curl);
-        curl_close($curl);
-        $price = json_decode($resp, true);
+       // Get Live Price
+       $currencies = 'monero';
+       $vs_currencies = 'usd';
+       $api_link = 'https://api.coingecko.com/api/v3/simple/price?ids=' . $currencies . '&vs_currencies=' . $vs_currencies;
 
-        if(isset($price)) {
-            $table_name = $wpdb->prefix.'monero_gateway_live_rates';
-            foreach($price['monero'] as $currency=>$rate) {
-                // shift decimal eight places for precise int storage
-                $rate = intval($rate * 1e8);
-                $query = $wpdb->prepare("INSERT INTO $table_name (currency, rate, updated) VALUES (%s, %d, NOW()) ON DUPLICATE KEY UPDATE rate=%d, updated=NOW()", array($currency, $rate, $rate));
-                $result = $wpdb->query($query);
-              	if(!$result){
-                    self::$log->add('Monero_Payments', "[ERROR] Impossible to write DB. Please check your DB connection or enable Debugging.");
-                }
-            }
-        }
-        else{
-             self::$log->add('Monero_Payments', "[ERROR] Unable to fetch prices from coingecko.com.");
-        }
+       $curl = curl_init();
+       curl_setopt_array($curl, array(
+       CURLOPT_RETURNTRANSFER => 1,
+       CURLOPT_URL => $api_link,
+       ));
+
+       $resp = curl_exec($curl);
+       curl_close($curl);
+
+       $price = json_decode($resp, true);
+
+       if (isset($price['monero']['usd'])) {
+           $rate = intval($price['monero']['usd'] * 1e8);
+
+           $table_name = $wpdb->prefix . 'monero_gateway_live_rates';
+           $query = $wpdb->prepare("INSERT INTO $table_name (currency, rate, updated) VALUES (%s, %d, NOW()) ON DUPLICATE KEY UPDATE rate=%d, updated=NOW()", array('usd', $rate, $rate));
+
+           $result = $wpdb->query($query);
+
+           if (!$result) {
+               self::$log->add('Monero_Payments', "[ERROR] Impossible to write DB. Please check your DB connection or enable Debugging.");
+           }
+       } else {
+           self::$log->add('Monero_Payments', "[ERROR] Unable to fetch prices from coingecko.com.");
+       }
+	    
 
 
         // Get current network/wallet height
